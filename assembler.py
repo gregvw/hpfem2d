@@ -44,14 +44,15 @@ class assembler(object):
 
         if p>1:                        # Edge nodes exist
 
-            de1 = slice(3,p+2)         # Edge 1 reference indices 
-            de2 = slice(p+2,2*p+1)     # Edge 2 reference indices 
-            de3 = slice(2*p+1,3*p)     # Edge 3 reference indices 
-            
-            XY = lambda j,k: np.array((self.xv[self.t[j,k%3]],self.yv[self.t[j,k%3]]))
-
+            # Indices of nodes along edge k=0,1,2 
+            de = lambda k: slice(k*p+3-k,(k+1)*p+2-k)
+                  
+            XY = lambda j,k: np.array((self.xv[self.t[j,k%3]],
+                                       self.yv[self.t[j,k%3]]))
                          
-            self.xye = np.vstack([edgeMap(xy[de1],xy[0,:],xy[1,:],XY(1,j),XY(2,j)) for j in range(self.Nt)])
+            self.xye = np.vstack([edgeMap(xy[de(k)],xy[k%3,:],xy[(k+1)%3,:],
+                                  XY(j,k%3),XY(j,(k+1)%3)) for k in range(3) 
+                                  for j in range(self.Nt)])
                       
             plt.plot(self.xye[:,0],self.xye[:,1],'o')
  
@@ -70,7 +71,7 @@ class assembler(object):
 
 if __name__ == '__main__':
    # number of grid points per dimension
-    n = 3
+    n = 7 
 
     # Create tensor product grid of x,y coordinates and column stack them as vectors
     q = np.linspace(-1,1,n)
