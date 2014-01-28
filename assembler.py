@@ -8,6 +8,11 @@ import sys
 
 def edgeMap(xu,u1,u2,v1,v2):
 
+    """
+    Map the set of points xu, which lie on the line segment [u1,u2], 
+    onto the points xv, which lie on the line segment [v1,v2]
+    """  
+
     n = xu.shape[0]
     e = np.ones(n)  
     t = (np.dot(xu,u1-u2)-e*np.dot(u2,u1-u2))/np.dot(u1-u2,u1-u2)
@@ -15,7 +20,20 @@ def edgeMap(xu,u1,u2,v1,v2):
 
     return xv
 
+def interiorMap(xu,v):
+    """
+    Map the set of points xu which lie on the 'unit' reference triangle with 
+    vertices {(-1,-1),(1,-1),(-1,1)} 
+    """
+    n = xu.shape[0]
+    e = np.ones(n)
+    M = np.array(((1,-1,-1),(1,1,-1),(1,-1,1))) 
+    ab = np.linalg.solve(M,v)
+    exu = np.vstack((e,xu.T)).T
+    xv = np.dot(exu,ab)
+    return xv
 
+   
 
 
 
@@ -40,7 +58,7 @@ class assembler(object):
 
         xy = np.array(zip(xn,yn))       
 
-        plt.plot(self.xv,self.yv,'o')   
+        plt.plot(self.xv,self.yv,'ro')   
 
         if p>1:                        # Edge nodes exist
 
@@ -54,11 +72,18 @@ class assembler(object):
                                   XY(j,k%3),XY(j,(k+1)%3)) for k in range(3) 
                                   for j in range(self.Nt)])
                       
-            plt.plot(self.xye[:,0],self.xye[:,1],'o')
+            plt.plot(self.xye[:,0],self.xye[:,1],'bo')
  
             if p>2:                    # Interior nodes exist
                 di  = slice(3*p,(p+2)*(p+1)/2)
-               
+                 
+                XYj = lambda j: np.vstack([XY(j,k) for k in range(3)])
+                
+                self.xyi = np.vstack([interiorMap(xy[di,:],XYj(j)) 
+                                      for j in range(self.Nt)])
+                print(self.xyi)                
+                plt.plot(self.xyi[:,0],self.xyi[:,1],'go')
+
             else:
                 pass
         else:                          # No edge nodes or interior nodes
@@ -71,7 +96,7 @@ class assembler(object):
 
 if __name__ == '__main__':
    # number of grid points per dimension
-    n = 7 
+    n = int(sys.argv[1]) 
 
     # Create tensor product grid of x,y coordinates and column stack them as vectors
     q = np.linspace(-1,1,n)
