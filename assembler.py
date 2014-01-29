@@ -62,50 +62,6 @@ class assembler(object):
 
         plt.plot(self.xv,self.yv,'ro')   
 
-        # Generate Edge and Interior nodes if any
-    
-        if p>1:                        # Edge nodes exist
-
-            # Indices of nodes along edge k=0,1,2 
-            de = lambda k: slice(k*p+3-k,(k+1)*p+2-k)
-                  
-            XY = lambda j,k: np.array((self.xv[self.t[j,k%3]],
-                                       self.yv[self.t[j,k%3]]))
-                         
-            xye = np.vstack([edgeMap(xy[de(k)],xy[k%3,:],xy[(k+1)%3,:],
-                             XY(j,k%3),XY(j,(k+1)%3)) for k in range(3) 
-                             for j in range(self.Nt)])
- 
-            self.xe = xye[:,0]
-            self.ye = xye[:,1] 
-                      
-            plt.plot(self.xe,self.ye,'bo')
- 
-            if p>2:                    # Interior nodes exist
-                di  = slice(3*p,(p+2)*(p+1)/2)
-                 
-                XYj = lambda j: np.vstack([XY(j,k) for k in range(3)])
-                
-                xyi = np.vstack([interiorMap(xy[di,:],XYj(j)) 
-                                 for j in range(self.Nt)])
-
-                self.xi = xyi[:,0]
-                self.yi = xyi[:,1]
-
-                plt.plot(self.xi,self.yi,'go')
-
-            else:                      # Edge nodes, but not interior nodes
-                self.xi = []  
-                self.yi = []  
-        else:                          # No edge nodes or interior nodes
-            self.xi = []  
-            self.yi = []  
-            self.xe = []
-            self.ye = []
-
-        self.Nep = len(self.xe)        # Number of edge points 3*self.Ne*(p-1)
-        self.Ni = len(self.xi)         # Number of interior points
-
         # for edge dofs: construct local-to-global index for edges
         # symmetrize pair of vertices per edge
         L = [tuple(self.edges[k,:])            for k in range(self.Ne)] + \
@@ -132,35 +88,80 @@ class assembler(object):
         # Determine length of every edge
         blen = np.sqrt(np.diff(self.xv[self.edges],1)**2+ \
                        np.diff(self.yv[self.edges],1)**2)
-        
+
         # Global indices of nodes which lie on edges
         # j loops over points along an edge
         # k loops over edges in the mesh
         edex = [[self.Nv+j+(p-1)*k for j in range(p-1)] 
                  for k in range(self.Ne)]
-        
+ 
 
-                 
 
-        if self.p>1:
+        # Generate Edge and Interior nodes if any
+    
+        if p>1:                        # Edge nodes exist
+
+            # Indices of nodes along edge k=0,1,2 
+            de = lambda k: slice(k*p+3-k,(k+1)*p+2-k)
+                  
+            XY = lambda j,k: np.array((self.xv[self.t[j,k%3]],
+                                       self.yv[self.t[j,k%3]]))
+                         
+            xye = np.vstack([edgeMap(xy[de(k)],xy[k%3,:],xy[(k+1)%3,:],
+                             XY(j,k%3),XY(j,(k+1)%3)) for k in range(3) 
+                             for j in range(self.Nt)])
+ 
+            self.xe = xye[:,0]
+            self.ye = xye[:,1] 
+
             for j in range(self.Nt):   # Loop over elements
                 for k in range(3):     # Loop over edges
                     inded = D[tuple(self.t[j,mask[k]])]
                     self.elems[j,slice(3+k*(p-1),3+(1+k)*(p-1))] = edex[inded]
-        if self.p>2:
-            for j in range(self.Nt):
-                idex = [self.Nv+self.Ne*(p-1)+j*self.Npi+k 
-                        for k in range(self.Npi)]
-                self.elems[j,slice(3*p,self.Np)] = idex
+                      
+            plt.plot(self.xe,self.ye,'bo')
+ 
+            if p>2:                    # Interior nodes exist
+                di  = slice(3*p,(p+2)*(p+1)/2)
+                 
+                XYj = lambda j: np.vstack([XY(j,k) for k in range(3)])
+                
+                xyi = np.vstack([interiorMap(xy[di,:],XYj(j)) 
+                                 for j in range(self.Nt)])
+
+                self.xi = xyi[:,0]
+                self.yi = xyi[:,1]
+
+                # Total number of nodes which lie on elemental boundaries
+                Nb = self.Nv+self.Ne*(p-1)
+                for j in range(self.Nt):
+                    
+                     idex = [Nb+j*self.Npi+k for k in range(self.Npi)]
+                     self.elems[j,slice(3*p,self.Np)] = idex
+
+
+                plt.plot(self.xi,self.yi,'go')
+
+            else:                      # Edge nodes, but not interior nodes
+                self.xi = []  
+                self.yi = []  
+        else:                          # No edge nodes or interior nodes
+            self.xi = []  
+            self.yi = []  
+            self.xe = []
+            self.ye = []
+
+        self.Nep = len(self.xe)        # Number of edge points 3*self.Ne*(p-1)
+        self.Ni = len(self.xi)         # Number of interior points
+
+        
+       
+
+                 
 
         np.set_printoptions(linewidth=999)
-#        from collections import Counter
-#        print(edex)
-#        print(Counter(self.elems.flatten()))
         print(self.elems)
-#        print(max(self.elems.flatten()))
-#        print(self.Nv+self.Ne*(p-1))
-#        plt.show()   
+        plt.show()   
        
 
 if __name__ == '__main__':
