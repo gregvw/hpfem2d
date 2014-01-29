@@ -33,14 +33,15 @@ def interiorMap(xu,v):
     xv = np.dot(exu,ab)
     return xv
 
-   
-
-
-
 
 
 
 class assembler(object):
+    """
+    Finite element matrix assembly object using the 
+    """
+
+
     def __init__(self,triang,p):
         
         self.p     = p                 # Maximal polynomial order
@@ -49,9 +50,8 @@ class assembler(object):
         self.edges = triang.edges      # List of edges which connect vertices
         self.xv    = triang.x          # Vertex nodes (x,y)
         self.yv    = triang.y           
-        self.Nt    = len(self.t)
-        
-
+        self.Nt    = len(self.t)       # Number of triangles
+        self.Nv    = len(self.xv)      # Number of vertices 
 
         # Interpolation points on the reference triangle
         xn,yn = nodes(p)
@@ -60,6 +60,8 @@ class assembler(object):
 
         plt.plot(self.xv,self.yv,'ro')   
 
+        # Generate Edge and Interior nodes if any
+    
         if p>1:                        # Edge nodes exist
 
             # Indices of nodes along edge k=0,1,2 
@@ -68,28 +70,69 @@ class assembler(object):
             XY = lambda j,k: np.array((self.xv[self.t[j,k%3]],
                                        self.yv[self.t[j,k%3]]))
                          
-            self.xye = np.vstack([edgeMap(xy[de(k)],xy[k%3,:],xy[(k+1)%3,:],
-                                  XY(j,k%3),XY(j,(k+1)%3)) for k in range(3) 
-                                  for j in range(self.Nt)])
+            xye = np.vstack([edgeMap(xy[de(k)],xy[k%3,:],xy[(k+1)%3,:],
+                             XY(j,k%3),XY(j,(k+1)%3)) for k in range(3) 
+                             for j in range(self.Nt)])
+ 
+            self.xe = xye[:,0]
+            self.ye = xye[:,1] 
                       
-            plt.plot(self.xye[:,0],self.xye[:,1],'bo')
+            plt.plot(self.xe,self.ye,'bo')
  
             if p>2:                    # Interior nodes exist
                 di  = slice(3*p,(p+2)*(p+1)/2)
                  
                 XYj = lambda j: np.vstack([XY(j,k) for k in range(3)])
                 
-                self.xyi = np.vstack([interiorMap(xy[di,:],XYj(j)) 
-                                      for j in range(self.Nt)])
-                print(self.xyi)                
-                plt.plot(self.xyi[:,0],self.xyi[:,1],'go')
+                xyi = np.vstack([interiorMap(xy[di,:],XYj(j)) 
+                                 for j in range(self.Nt)])
 
-            else:
-                pass
+                self.xi = xyi[:,0]
+                self.yi = xyi[:,1]
+
+                plt.plot(self.xi,self.yi,'go')
+
+            else:                      # Edge nodes, but not interior nodes
+                self.xi = []  
+                self.yi = []  
         else:                          # No edge nodes or interior nodes
             self.xe = []
             self.ye = []
-            self.xi = []  
+
+        self.Ne = len(self.xe)         # Number of edge points
+        self.Ni = len(self.xi)         # Number of interior points
+
+        # for edge dofs: construct local-to-global index for edges
+        # symmetrize pair of vertices per edge
+        L = [tuple(self.edges[k,:])            for k in range(self.edges.shape[0])] + \
+            [tuple(np.flipud(self.edges[k,:])) for k in range(self.edges.shape[0])]     
+
+        # List of vertex numbers (repeated for orderings)
+        dex = list(range(len(self.edges)))*2 
+
+        # lookup dictionary: identify edges by vertices
+        D = dict(list(zip(L,dex)))
+
+        # Lengths of reference edges
+        rlen = [1.,1.,np.sqrt(2.)]
+
+        # local dofs corresponding to each edge on element
+        mask = [[0,1],[1,2],[0,2]]
+
+        # list of global dofs (vertex|edge) for each element
+        self.elems = np.zeros((self.Nt,self.Np),dtype='uint16')
+
+        self.elems[:,:3] = self.t.copy() # vertex dofs
+
+        # Determine length of every edge
+        blen = np.sqrt(np.diff(self.xv[triang.edges],1)**2+ \
+                       np.diff(self.yv[triang.edges],1)**2)
+
+        for k in range(self.Nt):
+            for edge in range(3):
+                inded = D[tuple(self.t[k,mask[edge]])]
+                print(inded)
+
 
         plt.show()   
        
