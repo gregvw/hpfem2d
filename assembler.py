@@ -45,9 +45,11 @@ class assembler(object):
     def __init__(self,triang,p):
         
         self.p     = p                 # Maximal polynomial order
-        self.Np    = (p+1)*(p+2)/2     # Number of interp points per element
+        self.Np    = (p+1)*(p+2)/2     # Number of points per element
+        self.Npi   = (p-1)*(p-2)/2     # Number of interior points per element
         self.t     = triang.triangles  # List of elements by vertices
         self.edges = triang.edges      # List of edges which connect vertices
+        self.Ne    = len(self.edges)   # Number of edges
         self.xv    = triang.x          # Vertex nodes (x,y)
         self.yv    = triang.y           
         self.Nt    = len(self.t)       # Number of triangles
@@ -96,22 +98,24 @@ class assembler(object):
                 self.xi = []  
                 self.yi = []  
         else:                          # No edge nodes or interior nodes
+            self.xi = []  
+            self.yi = []  
             self.xe = []
             self.ye = []
 
-        self.Ne = len(self.xe)         # Number of edge points
+        self.Nep = len(self.xe)        # Number of edge points 3*self.Ne*(p-1)
         self.Ni = len(self.xi)         # Number of interior points
 
         # for edge dofs: construct local-to-global index for edges
         # symmetrize pair of vertices per edge
-        L = [tuple(self.edges[k,:])            for k in range(self.edges.shape[0])] + \
-            [tuple(np.flipud(self.edges[k,:])) for k in range(self.edges.shape[0])]     
+        L = [tuple(self.edges[k,:])            for k in range(self.Ne)] + \
+            [tuple(np.flipud(self.edges[k,:])) for k in range(self.Ne)]     
 
         # List of vertex numbers (repeated for orderings)
-        dex = list(range(len(self.edges)))*2 
+        dex = list(range(self.Ne))*2 
 
         # lookup dictionary: identify edges by vertices
-        D = dict(list(zip(L,dex)))
+        D = dict(zip(L,dex))
 
         # Lengths of reference edges
         rlen = [1.,1.,np.sqrt(2.)]
@@ -119,27 +123,50 @@ class assembler(object):
         # local dofs corresponding to each edge on element
         mask = [[0,1],[1,2],[0,2]]
 
-        # list of global dofs (vertex|edge) for each element
+        # list of global dofs (vertex|edge|interior) for each element (row #)
         self.elems = np.zeros((self.Nt,self.Np),dtype='uint16')
 
-        self.elems[:,:3] = self.t.copy() # vertex dofs
+        # Vertex dofs
+        self.elems[:,:3] = self.t.copy() 
 
         # Determine length of every edge
-        blen = np.sqrt(np.diff(self.xv[triang.edges],1)**2+ \
-                       np.diff(self.yv[triang.edges],1)**2)
+        blen = np.sqrt(np.diff(self.xv[self.edges],1)**2+ \
+                       np.diff(self.yv[self.edges],1)**2)
+        
+        # Global indices of nodes which lie on edges
+        # j loops over points along an edge
+        # k loops over edges in the mesh
+        edex = [[self.Nv+j+(p-1)*k for j in range(p-1)] 
+                 for k in range(self.Ne)]
+        
 
-        for k in range(self.Nt):
-            for edge in range(3):
-                inded = D[tuple(self.t[k,mask[edge]])]
-                print(inded)
+                 
 
+        if self.p>1:
+            for j in range(self.Nt):   # Loop over elements
+                for k in range(3):     # Loop over edges
+                    inded = D[tuple(self.t[j,mask[k]])]
+                    self.elems[j,slice(3+k*(p-1),3+(1+k)*(p-1))] = edex[inded]
+        if self.p>2:
+            for j in range(self.Nt):
+                idex = [self.Nv+self.Ne*(p-1)+j*self.Npi+k 
+                        for k in range(self.Npi)]
+                self.elems[j,slice(3*p,self.Np)] = idex
 
-        plt.show()   
+        np.set_printoptions(linewidth=999)
+#        from collections import Counter
+#        print(edex)
+#        print(Counter(self.elems.flatten()))
+        print(self.elems)
+#        print(max(self.elems.flatten()))
+#        print(self.Nv+self.Ne*(p-1))
+#        plt.show()   
        
 
 if __name__ == '__main__':
    # number of grid points per dimension
     n = int(sys.argv[1]) 
+    p = int(sys.argv[2])
 
     # Create tensor product grid of x,y coordinates and column stack them as vectors
     q = np.linspace(-1,1,n)
@@ -147,7 +174,7 @@ if __name__ == '__main__':
 
     t  = tri.Triangulation(xv,yv)
 
-    A = assembler(t,n)
+    A = assembler(t,p)
 
 
 
