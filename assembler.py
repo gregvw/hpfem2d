@@ -48,6 +48,7 @@ class assembler(object):
         self.Np    = (p+1)*(p+2)/2     # Number of points per element
         self.Npi   = (p-1)*(p-2)/2     # Number of interior points per element
         self.t     = triang.triangles  # List of elements by vertices
+        self.nbr   = triang.neighbors  # Adjacent elements
         self.edges = triang.edges      # List of edges which connect vertices
         self.Ne    = len(self.edges)   # Number of edges
         self.xv    = triang.x          # Vertex nodes (x,y)
@@ -95,7 +96,15 @@ class assembler(object):
         edex = [[self.Nv+j+(p-1)*k for j in range(p-1)] 
                  for k in range(self.Ne)]
  
+        # Identity every boundary edge and vertex
+        el,ed = np.where(self.nbr==-1) 
+        bvert = zip(self.t[el,ed],self.t[el,(ed+1)%3])
 
+        # Indices boundary edges
+        bedge = tuple({D[bv] for bv in bvert})
+
+        # Indices of boundary vertices
+        bvert = tuple({b for bv in bvert for b in bv})
 
         # Generate Edge and Interior nodes if any
     
@@ -119,6 +128,9 @@ class assembler(object):
                     inded = D[tuple(self.t[j,mask[k]])]
                     self.elems[j,slice(3+k*(p-1),3+(1+k)*(p-1))] = edex[inded]
                       
+            # Identify which edge points lie on boundaries from bedge
+            bedex = [self.Nv+j+(p-1)*k for j in range(p-1) for k in bedge]
+
             plt.plot(self.xe,self.ye,'bo')
  
             if p>2:                    # Interior nodes exist
@@ -159,9 +171,9 @@ class assembler(object):
 
                  
 
-        np.set_printoptions(linewidth=999)
-        print(self.elems)
-        plt.show()   
+#        np.set_printoptions(linewidth=999)
+#        print(self.elems)
+#        plt.show()   
        
 
 if __name__ == '__main__':
